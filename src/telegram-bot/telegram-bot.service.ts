@@ -1,41 +1,54 @@
 import { Injectable } from '@nestjs/common';
 import { Model } from 'mongoose';
-import { Context, Telegraf } from 'telegraf';
 const { message } = require('telegraf/filters');
 import { User } from '../schemas/user.schema';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { WeatherService } from '../weather/weather.service';
+import {
+    Update,
+    Ctx,
+    Start,
+    Help,
+    On,
+    Hears,
+    Command,
+  } from 'nestjs-telegraf';
+  import { Context } from 'telegraf';
+  
 
+
+@Update()
 @Injectable()
 export class TelegramBotService {
-    bot = new Telegraf('6559691270:AAEN2AwtYSIIkWa0_l6iYAy-r8XhqWkS3Dg');
   constructor(
     @InjectModel('User') private readonly userModel: Model<User>,
     private readonly weatherUpdateService: WeatherService,
-  ) {
-    this.startBot();
+  ) {}
+
+
+
+  @Start()
+  async start(@Ctx() ctx: Context) {
+    await ctx.reply('Welcome');
   }
 
-  getData(): { message: string } {
-    return { message: 'Welcome to server!' };
+  @Help()
+  async help(@Ctx() ctx: Context) {
+    await ctx.reply('Send me a sticker');
   }
 
-  startBot() {
-    this.bot.start((ctx) => ctx.reply('Welcome'));
-
-    this.bot.help((ctx) => ctx.reply('Send me a sticker'));
-
-    this.bot.on(message('sticker'), (ctx) => ctx.reply('👍'));
-
-    this.bot.hears('hi', (ctx) => ctx.reply('Hey there! I am a weather bot!'));
-
-    this.bot.command('unsubscribe', (ctx) => this.unsubscribeUser(ctx));
-    this.bot.command('subscribe', (ctx) => this.subscribeUser(ctx));
-    this.bot.command('getweatherupdate', (ctx) => this.getUpdate(ctx));
-    this.bot.command('updatelocation', (ctx) => this.updateLocation(ctx));
-    this.bot.launch()
+  @On('sticker')
+  async on(@Ctx() ctx: Context) {
+    await ctx.reply('👍');
   }
+
+  @Hears('hi')
+  async hears(@Ctx() ctx: Context) {
+    await ctx.reply('Hey there');
+  }
+
+  @Command('unsubscribe')
   async unsubscribeUser(ctx: Context) {
     const telegramId = ctx.from.id;
     try {
@@ -64,6 +77,7 @@ export class TelegramBotService {
     }
   }
 
+  @Command('updatelocation')
   async updateLocation(ctx:any){
     const telegramId = ctx.from.id;
     try {
@@ -100,7 +114,7 @@ export class TelegramBotService {
       );
     }
   }
-
+  @Command('subscribe')
   async subscribeUser(ctx:any) {
     const telegramId = ctx.from.id;
     try {
@@ -151,7 +165,7 @@ export class TelegramBotService {
       );
     }
   }
-
+  @Command('getweatherupdate')
   async getUpdate(ctx: Context) {
     const telegramId = ctx.from.id;
     try {
@@ -180,7 +194,7 @@ export class TelegramBotService {
     const subscribedUsers = await this.userModel.find({ subscribed: true });
     subscribedUsers.forEach(async (user) => {
       const weatherUpdate = await this.weatherUpdateService.getWeatherUpdate(user.location);
-      this.bot.telegram.sendMessage(user.telegram_id,weatherUpdate)
+    //   this.bot.telegram.sendMessage(user.telegram_id,weatherUpdate)
     });
   }
 }
