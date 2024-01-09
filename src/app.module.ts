@@ -8,6 +8,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { UserSchema } from './schemas/user.schema';
 import { WeatherService } from './weather/weather.service';
 import { Telegraf } from 'telegraf';
+import { TelegramBotService } from './telegram-bot/telegram-bot.service';
 @Module({
   imports: [
     MongooseModule.forRoot('mongodb+srv://Siddharth999:siddharth999@cluster0.wmel5.mongodb.net/?retryWrites=true&w=majority'),
@@ -16,7 +17,7 @@ import { Telegraf } from 'telegraf';
     ScheduleModule.forRoot()
   ],
   controllers: [AppController],
-  providers: [AppService, WeatherService],
+  providers: [AppService, WeatherService, TelegramBotService],
   exports:[MongooseModule]
 })
 export class AppModule {}
