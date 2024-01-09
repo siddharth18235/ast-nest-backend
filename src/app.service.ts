@@ -178,13 +178,13 @@ export class AppService {
     }
   }
 
-  //Every day at 6 am and 6 pm
-  // @Cron('0 6,18 * * *')
-  // async sendPeriodicUpdates() {
-  //   const subscribedUsers = await this.userModel.find({ subscribed: true });
-  //   subscribedUsers.forEach(async (user) => {
-  //     const weatherUpdate = await this.weatherUpdateService.getWeatherUpdate(user.location);
-  //     this.bot.telegram.sendMessage(user.telegram_id,weatherUpdate)
-  //   });
-  // }
+  // Every day at 6 am and 6 pm
+  @Cron('0 6,18 * * *')
+  async sendPeriodicUpdates() {
+    const subscribedUsers = await this.userModel.find({ subscribed: true });
+    subscribedUsers.forEach(async (user) => {
+      const weatherUpdate = await this.weatherUpdateService.getWeatherUpdate(user.location);
+      this.bot.telegram.sendMessage(user.telegram_id,weatherUpdate)
+    });
+  }
 }
