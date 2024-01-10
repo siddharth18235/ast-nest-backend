@@ -4,12 +4,13 @@ import { User } from '../schemas/user.schema';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { WeatherService } from '../weather/weather.service';
-import * as TelegramBot from 'node-telegram-bot-api'  
 
+
+const TelegramBot = require('node-telegram-bot-api');
 
 @Injectable()
-export class TelegramBotService {
-  private readonly bot: TelegramBot
+export class TelegramBotService { 
+  private readonly bot: any
   constructor(
     @InjectModel('User') private readonly userModel: Model<User>,
     private readonly weatherUpdateService: WeatherService,
@@ -19,45 +20,45 @@ export class TelegramBotService {
     this.setupListeners()
   }
 
-  private async sendMessage(msg:TelegramBot.Message,text:string){
+  private async sendMessage(msg:any,text:string){
     const chatId = msg.chat.id
       await this.bot.sendMessage(chatId,text);
   }
 
   private setupListeners(){
-    this.bot.onText(/\/start/,async (msg) => {
+    this.bot.onText(/\/start/,async (msg:any) => {
       await this.sendMessage(msg,'Welcome!')
     })
 
-    this.bot.onText(/\/help/,async (msg) => {
+    this.bot.onText(/\/help/,async (msg:any) => {
       await this.sendMessage(msg,'Send me a sticker!')
     })
 
-    this.bot.onText(/\/unsubscribe/,async (msg) => {
+    this.bot.onText(/\/unsubscribe/,async (msg:any) => {
       await this.unsubscribeUser(msg)
     })
 
-    this.bot.onText(/\/updatelocation/,async (msg) => {
+    this.bot.onText(/\/updatelocation/,async (msg:any) => {
       await this.updateLocation(msg)
     })
 
-    this.bot.onText(/\/subscribe/,async (msg) => {
+    this.bot.onText(/\/subscribe/,async (msg:any) => {
       await this.subscribeUser(msg)
     })
 
-    this.bot.onText(/\/getweatherupdate/,async (msg) => {
+    this.bot.onText(/\/getweatherupdate/,async (msg:any) => {
       await this.getUpdate(msg)
     })
 
-    this.bot.on('sticker',async (msg) => {
+    this.bot.on('sticker',async (msg:any) => {
       await this.sendMessage(msg,'👍')
     })
 
-    this.bot.on('message',async (msg) => {
+    this.bot.on('message',async (msg:any) => {
       await this.sendMessage(msg,'Hey there!')
     })
   }
-  async unsubscribeUser(msg:TelegramBot.Message) {
+  async unsubscribeUser(msg:any) {
     const telegramId = msg.from.id;
     try {
       // Check if the user is already subscribed
@@ -85,7 +86,7 @@ export class TelegramBotService {
     }
   }
   
-  async updateLocation(msg:TelegramBot.Message){
+  async updateLocation(msg:any){
     const telegramId = msg.from.id;
     const message = msg.text
     try {
@@ -123,7 +124,7 @@ export class TelegramBotService {
     }
   }
   
-  async subscribeUser(msg:TelegramBot.Message) {
+  async subscribeUser(msg:any) {
     const telegramId = msg.from.id;
     const message = msg.text
     try {
@@ -175,7 +176,7 @@ export class TelegramBotService {
     }
   }
   
-  async getUpdate(msg: TelegramBot.Message) {
+  async getUpdate(msg: any) {
     const telegramId = msg.from.id;
     try {
       // Check if the user is already subscribed
