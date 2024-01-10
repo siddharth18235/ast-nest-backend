@@ -1,198 +1,170 @@
 import { Injectable } from '@nestjs/common';
 import { Model } from 'mongoose';
+const { message } = require('telegraf/filters');
 import { User } from '../schemas/user.schema';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { WeatherService } from '../weather/weather.service';
+import {
+    Update,
+    Ctx,
+    Start,
+    Help,
+    On,
+    Hears,
+    Command,
+  } from 'nestjs-telegraf';
+  import { Context } from 'telegraf';
+import { UserService } from 'src/user/user.service';
+  
 
 
-const TelegramBot = require('node-telegram-bot-api');
-
+@Update()
 @Injectable()
-export class TelegramBotService { 
-  private readonly bot: any
+export class TelegramBotService {
   constructor(
-    @InjectModel('User') private readonly userModel: Model<User>,
+    private readonly userService: UserService,
     private readonly weatherUpdateService: WeatherService,
-  ) {
-    this.bot = new TelegramBot('6559691270:AAEN2AwtYSIIkWa0_l6iYAy-r8XhqWkS3Dg',{polling:true})
+  ) {}
 
-    this.setupListeners()
+
+
+  @Start()
+  async start(@Ctx() ctx: Context) {
+    await ctx.reply('Welcome');
   }
 
-  private async sendMessage(msg:any,text:string){
-    const chatId = msg.chat.id
-      await this.bot.sendMessage(chatId,text);
+  @Help()
+  async help(@Ctx() ctx: Context) {
+    await ctx.reply('Send me a sticker');
   }
 
-  private setupListeners(){
-    this.bot.onText(/\/start/,async (msg:any) => {
-      await this.sendMessage(msg,'Welcome!')
-    })
-
-    this.bot.onText(/\/help/,async (msg:any) => {
-      await this.sendMessage(msg,'Send me a sticker!')
-    })
-
-    this.bot.onText(/\/unsubscribe/,async (msg:any) => {
-      await this.unsubscribeUser(msg)
-    })
-
-    this.bot.onText(/\/updatelocation/,async (msg:any) => {
-      await this.updateLocation(msg)
-    })
-
-    this.bot.onText(/\/subscribe/,async (msg:any) => {
-      await this.subscribeUser(msg)
-    })
-
-    this.bot.onText(/\/getweatherupdate/,async (msg:any) => {
-      await this.getUpdate(msg)
-    })
-
-    this.bot.on('sticker',async (msg:any) => {
-      await this.sendMessage(msg,'👍')
-    })
-
-    this.bot.on('message',async (msg:any) => {
-      await this.sendMessage(msg,'Hey there!')
-    })
+  @On('sticker')
+  async on(@Ctx() ctx: Context) {
+    await ctx.reply('👍');
   }
-  async unsubscribeUser(msg:any) {
-    const telegramId = msg.from.id;
+
+  @Hears('hi')
+  async hears(@Ctx() ctx: Context) {
+    await ctx.reply('Hey there');
+  }
+
+  @Command('unsubscribe')
+  async unsubscribeUser(ctx: Context) {
+    const telegramId = ctx.from.id;
     try {
       // Check if the user is already subscribed
-      const existingUser = await this.userModel.findOne({
-        telegram_id: telegramId,
-      });
+      const existingUser = await this.userService.getUserByTelegramId(telegramId)
       if (existingUser) {
-        await this.userModel.findOneAndUpdate(
-          { telegram_id: telegramId },
-          {
-            subscribed: false,
-          },
-        );
-        this.sendMessage(msg,
+        await this.userService.findUserAndUpdateByTelegramId(telegramId,{
+          subscribed: false,
+        })
+        await ctx.reply(
           'Bye bye! You have been un-subscribed for daily weather updates.',
         );
       } else {
-        await this.sendMessage(msg,'You are not subscribed for daily weather updates.');
+        await ctx.reply('You are not subscribed for daily weather updates.');
       }
     } catch (error) {
       console.error('Error subscribing user:', error);
-      await this.sendMessage(msg,
+      await ctx.reply(
         'An error occurred while processing your request. Please try again later.',
       );
     }
   }
-  
-  async updateLocation(msg:any){
-    const telegramId = msg.from.id;
-    const message = msg.text
+
+  @Command('updatelocation')
+  async updateLocation(ctx:any){
+    const telegramId = ctx.from.id;
     try {
       // Check if the user is present and subscribed
-      const existingUser = await this.userModel.findOne({
-        telegram_id: telegramId,
-      });
+      const existingUser = await this.userService.getUserByTelegramId(telegramId);
       if (!existingUser || !existingUser.subscribed) {
-        await this.sendMessage(msg,'You are not subscribed for daily weather updates.');
+        await ctx.reply('You are not subscribed for daily weather updates.');
       }else{
         const regex = /^\/updatelocation\s(.+)$/;
-        const match = message.match(regex);
+        const match = ctx.message.text.match(regex);
         if(match){
           const location = match[1];
-          await this.userModel.findOneAndUpdate(
-            { telegram_id: telegramId },
-            {
-              location:location
-            },
-          );
-          await this.sendMessage(msg,
+          await this.userService.findUserAndUpdateByTelegramId(telegramId,{
+            location:location
+          });
+          await ctx.reply(
             `You will now receive location updates from ${location}`,
           );
           return
         }else{
-          this.sendMessage(msg,'Please provide a location to subscribe.');
+          ctx.reply('Please provide a location to subscribe.');
           return;
         }
       }
     }catch(error){
       console.error('Error subscribing user:', error);
-      await this.sendMessage(msg,
+      await ctx.reply(
         'An error occurred while processing your request. Please try again later.',
       );
     }
   }
-  
-  async subscribeUser(msg:any) {
-    const telegramId = msg.from.id;
-    const message = msg.text
+  @Command('subscribe')
+  async subscribeUser(ctx:any) {
+    const telegramId = ctx.from.id;
     try {
       // Check if the user is already subscribed
-      const existingUser = await this.userModel.findOne({
-        telegram_id: telegramId,
-      });
+      const existingUser = await this.userService.getUserByTelegramId(telegramId);
       if (existingUser && existingUser.subscribed) {
-        await this.sendMessage(msg,
+        await ctx.reply(
           'You are already subscribed for daily weather updates.',
         );
       } else {
         const regex = /^\/subscribe\s(.+)$/;
-        const match = message.match(regex);
+        const match = ctx.message.text.match(regex);
         if(match){
-          const location = message.split(' ')[1];
+          const location = ctx.message.text.split(' ')[1];
         // If the user is not subscribed, create a new user and save to MongoDB
         if (existingUser && !existingUser.subscribed) {
-          await this.userModel.findOneAndUpdate(
-            { telegram_id: telegramId },
-            {
-              subscribed: true,
-              location:location
-            },
-          );
+          await this.userService.findUserAndUpdateByTelegramId(telegramId,{
+            subscribed: true,
+            location:location
+          });
         } else {
-          const newUser = new this.userModel({
-            name: msg.from.first_name.concat(' ').concat(msg.from.last_name),
+          await this.userService.createuser({
+            name: ctx.from.first_name.concat(' ').concat(ctx.from.last_name),
             telegram_id: telegramId,
             subscribed: true,
             location: location,
-          });
-
-          await newUser.save();
+          })
         }
-        await this.sendMessage(msg,
+        await ctx.reply(
           `Welcome! You have been subscribed for daily weather updates. Your location has been set to ${location}`,
         );
         }else{
-          this.sendMessage(msg,'Please provide a location to subscribe.');
+          ctx.reply('Please provide a location to subscribe.');
           return;
         }
       }
     } catch (error) {
       console.error('Error subscribing user:', error);
-      await this.sendMessage(msg,
+      await ctx.reply(
         'An error occurred while processing your request. Please try again later.',
       );
     }
   }
-  
-  async getUpdate(msg: any) {
-    const telegramId = msg.from.id;
+  @Command('getweatherupdate')
+  async getUpdate(ctx: Context) {
+    const telegramId = ctx.from.id;
     try {
       // Check if the user is already subscribed
-      const existingUser = await this.userModel.findOne({
-        telegram_id: telegramId,
-      });
+      const existingUser = await this.userService.getUserByTelegramId(telegramId);
       if (existingUser && existingUser.subscribed) {
         const weatherUpdate =
           await this.weatherUpdateService.getWeatherUpdate(existingUser.location);
-        await this.sendMessage(msg,weatherUpdate);
+        await ctx.reply(weatherUpdate);
       } else {
-        await this.sendMessage(msg,'You are not subscribed for daily weather updates.');
+        await ctx.reply('You are not subscribed for daily weather updates.');
       }
     } catch (error) {
       console.error('Error subscribing user:', error);
-      await this.sendMessage(msg,
+      await ctx.reply(
         'An error occurred while processing your request. Please try again later.',
       );
     }
@@ -201,7 +173,7 @@ export class TelegramBotService {
   // Every day at 6 am and 6 pm
   @Cron('0 6,18 * * *')
   async sendPeriodicUpdates() {
-    const subscribedUsers = await this.userModel.find({ subscribed: true });
+    const subscribedUsers = await this.userService.findUser({ subscribed: true });
     subscribedUsers.forEach(async (user) => {
       const weatherUpdate = await this.weatherUpdateService.getWeatherUpdate(user.location);
     //   this.bot.telegram.sendMessage(user.telegram_id,weatherUpdate)
