@@ -1,56 +1,64 @@
 import { Injectable } from '@nestjs/common';
 import { Model } from 'mongoose';
-const { message } = require('telegraf/filters');
 import { User } from '../schemas/user.schema';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { WeatherService } from '../weather/weather.service';
-import {
-    Update,
-    Ctx,
-    Start,
-    Help,
-    On,
-    Hears,
-    Command,
-  } from 'nestjs-telegraf';
-  import { Context } from 'telegraf';
-  
+import * as TelegramBot from 'node-telegram-bot-api'  
 
 
-@Update()
 @Injectable()
 export class TelegramBotService {
+  private readonly bot: TelegramBot
   constructor(
     @InjectModel('User') private readonly userModel: Model<User>,
     private readonly weatherUpdateService: WeatherService,
-  ) {}
+  ) {
+    this.bot = new TelegramBot('6559691270:AAEN2AwtYSIIkWa0_l6iYAy-r8XhqWkS3Dg',{polling:true})
 
-
-
-  @Start()
-  async start(@Ctx() ctx: Context) {
-    await ctx.reply('Welcome');
+    this.setupListeners()
   }
 
-  @Help()
-  async help(@Ctx() ctx: Context) {
-    await ctx.reply('Send me a sticker');
+  private async sendMessage(msg:TelegramBot.Message,text:string){
+    const chatId = msg.chat.id
+      await this.bot.sendMessage(chatId,text);
   }
 
-  @On('sticker')
-  async on(@Ctx() ctx: Context) {
-    await ctx.reply('👍');
-  }
+  private setupListeners(){
+    this.bot.onText(/\/start/,async (msg) => {
+      await this.sendMessage(msg,'Welcome!')
+    })
 
-  @Hears('hi')
-  async hears(@Ctx() ctx: Context) {
-    await ctx.reply('Hey there');
-  }
+    this.bot.onText(/\/help/,async (msg) => {
+      await this.sendMessage(msg,'Send me a sticker!')
+    })
 
-  @Command('unsubscribe')
-  async unsubscribeUser(ctx: Context) {
-    const telegramId = ctx.from.id;
+    this.bot.onText(/\/unsubscribe/,async (msg) => {
+      await this.unsubscribeUser(msg)
+    })
+
+    this.bot.onText(/\/updatelocation/,async (msg) => {
+      await this.updateLocation(msg)
+    })
+
+    this.bot.onText(/\/subscribe/,async (msg) => {
+      await this.subscribeUser(msg)
+    })
+
+    this.bot.onText(/\/getweatherupdate/,async (msg) => {
+      await this.getUpdate(msg)
+    })
+
+    this.bot.on('sticker',async (msg) => {
+      await this.sendMessage(msg,'👍')
+    })
+
+    this.bot.on('message',async (msg) => {
+      await this.sendMessage(msg,'Hey there!')
+    })
+  }
+  async unsubscribeUser(msg:TelegramBot.Message) {
+    const telegramId = msg.from.id;
     try {
       // Check if the user is already subscribed
       const existingUser = await this.userModel.findOne({
@@ -63,33 +71,33 @@ export class TelegramBotService {
             subscribed: false,
           },
         );
-        await ctx.reply(
+        this.sendMessage(msg,
           'Bye bye! You have been un-subscribed for daily weather updates.',
         );
       } else {
-        await ctx.reply('You are not subscribed for daily weather updates.');
+        await this.sendMessage(msg,'You are not subscribed for daily weather updates.');
       }
     } catch (error) {
       console.error('Error subscribing user:', error);
-      await ctx.reply(
+      await this.sendMessage(msg,
         'An error occurred while processing your request. Please try again later.',
       );
     }
   }
-
-  @Command('updatelocation')
-  async updateLocation(ctx:any){
-    const telegramId = ctx.from.id;
+  
+  async updateLocation(msg:TelegramBot.Message){
+    const telegramId = msg.from.id;
+    const message = msg.text
     try {
       // Check if the user is present and subscribed
       const existingUser = await this.userModel.findOne({
         telegram_id: telegramId,
       });
       if (!existingUser || !existingUser.subscribed) {
-        await ctx.reply('You are not subscribed for daily weather updates.');
+        await this.sendMessage(msg,'You are not subscribed for daily weather updates.');
       }else{
         const regex = /^\/updatelocation\s(.+)$/;
-        const match = ctx.message.text.match(regex);
+        const match = message.match(regex);
         if(match){
           const location = match[1];
           await this.userModel.findOneAndUpdate(
@@ -98,39 +106,40 @@ export class TelegramBotService {
               location:location
             },
           );
-          await ctx.reply(
+          await this.sendMessage(msg,
             `You will now receive location updates from ${location}`,
           );
           return
         }else{
-          ctx.reply('Please provide a location to subscribe.');
+          this.sendMessage(msg,'Please provide a location to subscribe.');
           return;
         }
       }
     }catch(error){
       console.error('Error subscribing user:', error);
-      await ctx.reply(
+      await this.sendMessage(msg,
         'An error occurred while processing your request. Please try again later.',
       );
     }
   }
-  @Command('subscribe')
-  async subscribeUser(ctx:any) {
-    const telegramId = ctx.from.id;
+  
+  async subscribeUser(msg:TelegramBot.Message) {
+    const telegramId = msg.from.id;
+    const message = msg.text
     try {
       // Check if the user is already subscribed
       const existingUser = await this.userModel.findOne({
         telegram_id: telegramId,
       });
       if (existingUser && existingUser.subscribed) {
-        await ctx.reply(
+        await this.sendMessage(msg,
           'You are already subscribed for daily weather updates.',
         );
       } else {
         const regex = /^\/subscribe\s(.+)$/;
-        const match = ctx.message.text.match(regex);
+        const match = message.match(regex);
         if(match){
-          const location = ctx.message.text.split(' ')[1];
+          const location = message.split(' ')[1];
         // If the user is not subscribed, create a new user and save to MongoDB
         if (existingUser && !existingUser.subscribed) {
           await this.userModel.findOneAndUpdate(
@@ -142,7 +151,7 @@ export class TelegramBotService {
           );
         } else {
           const newUser = new this.userModel({
-            name: ctx.from.first_name.concat(' ').concat(ctx.from.last_name),
+            name: msg.from.first_name.concat(' ').concat(msg.from.last_name),
             telegram_id: telegramId,
             subscribed: true,
             location: location,
@@ -150,24 +159,24 @@ export class TelegramBotService {
 
           await newUser.save();
         }
-        await ctx.reply(
+        await this.sendMessage(msg,
           `Welcome! You have been subscribed for daily weather updates. Your location has been set to ${location}`,
         );
         }else{
-          ctx.reply('Please provide a location to subscribe.');
+          this.sendMessage(msg,'Please provide a location to subscribe.');
           return;
         }
       }
     } catch (error) {
       console.error('Error subscribing user:', error);
-      await ctx.reply(
+      await this.sendMessage(msg,
         'An error occurred while processing your request. Please try again later.',
       );
     }
   }
-  @Command('getweatherupdate')
-  async getUpdate(ctx: Context) {
-    const telegramId = ctx.from.id;
+  
+  async getUpdate(msg: TelegramBot.Message) {
+    const telegramId = msg.from.id;
     try {
       // Check if the user is already subscribed
       const existingUser = await this.userModel.findOne({
@@ -176,13 +185,13 @@ export class TelegramBotService {
       if (existingUser && existingUser.subscribed) {
         const weatherUpdate =
           await this.weatherUpdateService.getWeatherUpdate(existingUser.location);
-        await ctx.reply(weatherUpdate);
+        await this.sendMessage(msg,weatherUpdate);
       } else {
-        await ctx.reply('You are not subscribed for daily weather updates.');
+        await this.sendMessage(msg,'You are not subscribed for daily weather updates.');
       }
     } catch (error) {
       console.error('Error subscribing user:', error);
-      await ctx.reply(
+      await this.sendMessage(msg,
         'An error occurred while processing your request. Please try again later.',
       );
     }
