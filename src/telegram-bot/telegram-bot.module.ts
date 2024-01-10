@@ -8,20 +8,20 @@ import { User, UserSchema } from 'src/schemas/user.schema';
 
 @Module({
     imports:[
-        // TelegrafModule.forRoot({
-        //     token: '6559691270:AAEN2AwtYSIIkWa0_l6iYAy-r8XhqWkS3Dg',
-        //   }),
-          MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
-          TelegrafModule.forRoot({
+        TelegrafModule.forRoot({
             token: '6559691270:AAEN2AwtYSIIkWa0_l6iYAy-r8XhqWkS3Dg',
-            launchOptions: {
-              dropPendingUpdates: true,
-              webhook: {
-                domain: 'https://ast-nest-backend.vercel.app/',
-                hookPath: 'api/telegram-webhook',
-              },
-            }
           }),
+          MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+        //   TelegrafModule.forRoot({
+        //     token: '6559691270:AAEN2AwtYSIIkWa0_l6iYAy-r8XhqWkS3Dg',
+        //     launchOptions: {
+        //       dropPendingUpdates: true,
+        //       webhook: {
+        //         domain: 'https://ast-nest-backend.vercel.app/',
+        //         hookPath: 'api/telegram-webhook',
+        //       },
+        //     }
+        //   }),
     ],
     providers:[TelegramBotService,UserService,WeatherService]
 })
