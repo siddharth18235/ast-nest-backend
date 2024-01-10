@@ -3,7 +3,6 @@ import { Model } from 'mongoose';
 const { message } = require('telegraf/filters');
 import { User } from '../schemas/user.schema';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { InjectModel } from '@nestjs/mongoose';
 import { WeatherService } from '../weather/weather.service';
 import {
     Update,
@@ -27,6 +26,7 @@ export class TelegramBotService {
     private readonly weatherUpdateService: WeatherService,
   ) {}
 
+  
 
 
   @Start()

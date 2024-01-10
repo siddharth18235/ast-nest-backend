@@ -17,8 +17,8 @@ import { User, UserSchema } from 'src/schemas/user.schema';
             launchOptions: {
               dropPendingUpdates: true,
               webhook: {
-                domain: 'https://webhook.site',
-                hookPath: '11559d76-d04d-4635-ab6e-b5b625f759d5',
+                domain: 'https://ast-nest-backend.vercel.app/',
+                hookPath: 'api/telegram-webhook',
               },
             }
           }),
